@@ -4,7 +4,7 @@ import supabase from '../services/auth';
 
 const OFFICE_LATITUDE = 12.990650; // Example: Chennai coordinates
 const OFFICE_LONGITUDE = 80.219904;
-const ALLOWED_RADIUS_METERS = 20; // 200 meters radius
+const ALLOWED_RADIUS_METERS = 50; // 200 meters radius
 fetch('http://172.51.21.104:5000/api/departments')
 const EmployeeCheckIn = () => {
     const [formData, setFormData] = useState({
@@ -808,6 +808,7 @@ const EmployeeCheckIn = () => {
 
 
 export default EmployeeCheckIn;
+
 
 
 
