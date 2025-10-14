@@ -2,7 +2,7 @@
 .device-status-banner {
     display: flex;
     align-items: center;
-    padding: 1px 13px;
+    padding: 8px 22px;
     margin-bottom: 8px;
     border-radius: 8px;
     border: 4px solid;
@@ -757,6 +757,7 @@ select:disabled {
         flex-direction: column;
     }
 }
+
 
 
 
