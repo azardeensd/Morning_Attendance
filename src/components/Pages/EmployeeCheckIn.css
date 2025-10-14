@@ -32,6 +32,7 @@ location-status-banner
 
 .device-status-content {
     flex: 1;
+    padding: 10px 0;
 }
 
 .device-status-message {
@@ -754,4 +755,5 @@ select:disabled {
         flex-direction: column;
     }
 }
+
 
