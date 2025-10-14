@@ -2,9 +2,9 @@ import React, { useState, useEffect } from 'react';
 import './EmployeeCheckIn.css';
 import supabase from '../services/auth'; 
 
-const OFFICE_LATITUDE = 12.990461; // Example: Chennai coordinates
-const OFFICE_LONGITUDE = 80.220037;
-const ALLOWED_RADIUS_METERS = 200; // 200 meters radius
+const OFFICE_LATITUDE = 12.990650; // Example: Chennai coordinates
+const OFFICE_LONGITUDE = 80.219904;
+const ALLOWED_RADIUS_METERS = 10; // 200 meters radius
 fetch('http://172.51.21.104:5000/api/departments')
 const EmployeeCheckIn = () => {
     const [formData, setFormData] = useState({
@@ -808,4 +808,5 @@ const EmployeeCheckIn = () => {
 
 
 export default EmployeeCheckIn;
+
 
