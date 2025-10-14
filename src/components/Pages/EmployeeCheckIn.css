@@ -37,7 +37,7 @@ location-status-banner
 .device-status-message {
     font-weight: 600;
     margin-bottom: 4px;
-    font-size: 14px;
+    font-size: 12px;
 }
 
 .device-status-details {
@@ -754,3 +754,4 @@ select:disabled {
         flex-direction: column;
     }
 }
+
