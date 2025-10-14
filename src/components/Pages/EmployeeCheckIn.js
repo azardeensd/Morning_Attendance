@@ -615,11 +615,7 @@ const EmployeeCheckIn = () => {
                              ipCheckLoading ? 'Verifying device...' : 
                              'Device verified - Ready for check-in'}
                         </div>
-                        {userIP && !ipRestrictionError && (
-                            <div className="device-status-details">
-                                Your IP: {userIP} | One check-in per device allowed
-                            </div>
-                        )}
+                    
                     </div>
                     {ipRestrictionError && (
                         <button 
@@ -812,3 +808,4 @@ const EmployeeCheckIn = () => {
 
 
 export default EmployeeCheckIn;
+
