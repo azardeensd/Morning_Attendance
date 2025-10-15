@@ -2,9 +2,9 @@ import React, { useState, useEffect } from 'react';
 import './EmployeeCheckIn.css';
 import supabase from '../services/auth'; 
 
-const OFFICE_LATITUDE = 12.990650; // Example: Chennai coordinates
-const OFFICE_LONGITUDE = 80.219904;
-const ALLOWED_RADIUS_METERS = 200; // 40 meters radius
+const OFFICE_LATITUDE = 12.990461; // Example: Chennai coordinates
+const OFFICE_LONGITUDE = 80.220037;
+const ALLOWED_RADIUS_METERS = 200; // 200 meters radius
 fetch('http://172.51.21.104:5000/api/departments')
 const EmployeeCheckIn = () => {
     const [formData, setFormData] = useState({
@@ -364,7 +364,7 @@ const EmployeeCheckIn = () => {
         if (ip) {
             const { allowed, existingRecord } = await checkIPRestriction(ip);
             if (!allowed && existingRecord) {
-                setIpRestrictionError(`This device has already been used for check-in today.`);
+                setIpRestrictionError(`This device has been checked-in today`);
             }
         }
     };
@@ -615,7 +615,11 @@ const EmployeeCheckIn = () => {
                              ipCheckLoading ? 'Verifying device...' : 
                              'Device verified - Ready for check-in'}
                         </div>
-                    
+                        {userIP && !ipRestrictionError && (
+                            <div className="device-status-details">
+                                Your IP: {userIP} | One check-in per device allowed
+                            </div>
+                        )}
                     </div>
                     {ipRestrictionError && (
                         <button 
@@ -806,12 +810,4 @@ const EmployeeCheckIn = () => {
     );
 };
 
-
 export default EmployeeCheckIn;
-
-
-
-
-
-
-
