@@ -11,7 +11,7 @@
 }
 
 .device-status-banner.allowed {
-    /* border-left-color: #27ae60; */
+    border-left-color: #27ae60;
     background: #d5f4e6;
 }
 
@@ -755,4 +755,5 @@ select:disabled {
         flex-direction: column;
     }
 }
+
 
