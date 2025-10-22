@@ -2,10 +2,10 @@ import React, { useState, useEffect } from 'react';
 import './EmployeeCheckIn.css';
 import supabase from '../services/auth'; 
 
-const OFFICE_LATITUDE = 12.990461; // Example: Chennai coordinates
+const OFFICE_LATITUDE = 12.990461;
 const OFFICE_LONGITUDE = 80.220037;
-const ALLOWED_RADIUS_METERS = 200; // 200 meters radius
-fetch('http://172.51.21.104:5000/api/departments')
+const ALLOWED_RADIUS_METERS = 200;
+
 const EmployeeCheckIn = () => {
     const [formData, setFormData] = useState({
         departmentId: '',
@@ -40,11 +40,12 @@ const EmployeeCheckIn = () => {
     const [ipCheckLoading, setIpCheckLoading] = useState(true);
     const [ipRestrictionError, setIpRestrictionError] = useState(null);
 
-    // Get user's IP address
+    // Enhanced IP detection with better error handling
     const getUserIP = async () => {
         try {
             setIpCheckLoading(true);
-            // Try multiple IP detection services as fallback
+            setIpRestrictionError(null);
+            
             const services = [
                 'https://api.ipify.org?format=json',
                 'https://api64.ipify.org?format=json',
@@ -55,18 +56,26 @@ const EmployeeCheckIn = () => {
             
             for (const service of services) {
                 try {
+                    const controller = new AbortController();
+                    const timeoutId = setTimeout(() => controller.abort(), 3000);
+                    
                     const response = await fetch(service, {
                         method: 'GET',
-                        timeout: 5000
+                        signal: controller.signal
                     });
+                    
+                    clearTimeout(timeoutId);
                     
                     if (response.ok) {
                         const data = await response.json();
                         ip = data.ip || (data.data && data.data.ip) || data.query;
-                        if (ip) break;
+                        if (ip) {
+                            console.log('IP detected from:', service, ip);
+                            break;
+                        }
                     }
                 } catch (error) {
-                    console.log(`IP service ${service} failed:`, error);
+                    console.log(`IP service ${service} failed:`, error.message);
                     continue;
                 }
             }
@@ -79,37 +88,102 @@ const EmployeeCheckIn = () => {
             return ip;
         } catch (error) {
             console.error('Error getting IP address:', error);
-            setIpRestrictionError('Unable to verify device. Please check your internet connection.');
+            setIpRestrictionError('Unable to verify device. Please check your internet connection and refresh the page.');
             return null;
         } finally {
             setIpCheckLoading(false);
         }
     };
 
-    // Check if IP has already been used today
-    const checkIPRestriction = async (ip) => {
+    // Enhanced IP restriction check
+    const checkIPRestriction = async (ip, currentEmployeeId = null) => {
         try {
             const today = new Date().toISOString().split('T')[0];
-            const { data, error } = await supabase
+            
+            // Check if this IP has been used today for ANY employee
+            const { data, error, count } = await supabase
                 .from('attendance')
-                .select('employee_name, check_in_date')
+                .select('employee_name, employee_id, check_in_date, created_at', { count: 'exact' })
                 .eq('ip_address', ip)
-                .eq('check_in_date', today)
-                .maybeSingle();
+                .eq('check_in_date', today);
             
             if (error) {
                 console.error('Error checking IP restriction:', error);
-                return { allowed: true, existingRecord: null }; // Allow on error
+                return { allowed: true, existingRecords: [] }; // Allow on error
+            }
+            
+            // If there are existing records, check if it's for the same employee
+            if (data && data.length > 0) {
+                // If checking for a specific employee, see if they already checked in from any device
+                if (currentEmployeeId) {
+                    const employeeCheckin = data.find(record => record.employee_id === currentEmployeeId);
+                    if (employeeCheckin) {
+                        return { 
+                            allowed: false, 
+                            existingRecords: data,
+                            message: `You have already checked in today from another device.`
+                        };
+                    }
+                }
+                
+                // If IP has been used for other employees, block it
+                return { 
+                    allowed: false, 
+                    existingRecords: data,
+                    message: `This device has already been used for check-in today. Only one check-in per device is allowed.`
+                };
             }
             
             return { 
-                allowed: !data, 
-                existingRecord: data 
+                allowed: true, 
+                existingRecords: [] 
             };
         } catch (error) {
             console.error('Error checking IP restriction:', error);
-            return { allowed: true, existingRecord: null }; // Allow on error
+            return { allowed: true, existingRecords: [] }; // Allow on error
         }
+    };
+
+    // Enhanced IP initialization with retry logic
+    const initializeIPCheck = async (retryCount = 0) => {
+        const maxRetries = 2;
+        try {
+            const ip = await getUserIP();
+            if (ip) {
+                const { allowed, existingRecords, message } = await checkIPRestriction(ip);
+                if (!allowed) {
+                    const names = [...new Set(existingRecords.map(record => record.employee_name))].join(', ');
+                    setIpRestrictionError(`${message} ${names ? `Used by: ${names}` : ''}`);
+                } else {
+                    setIpRestrictionError(null);
+                }
+            } else if (retryCount < maxRetries) {
+                // Retry after delay
+                setTimeout(() => initializeIPCheck(retryCount + 1), 2000);
+            }
+        } catch (error) {
+            console.error('IP initialization error:', error);
+            if (retryCount < maxRetries) {
+                setTimeout(() => initializeIPCheck(retryCount + 1), 2000);
+            }
+        }
+    };
+
+    // Real-time IP validation before submission
+    const validateIPBeforeSubmit = async (employeeId) => {
+        if (!userIP) {
+            const ip = await getUserIP();
+            if (!ip) {
+                throw new Error('Unable to verify your device. Please check your internet connection.');
+            }
+        }
+
+        const { allowed, message } = await checkIPRestriction(userIP, employeeId);
+        if (!allowed) {
+            throw new Error(message);
+        }
+        
+        return true;
     };
 
     // Calculate distance between two coordinates using Haversine formula
@@ -358,17 +432,6 @@ const EmployeeCheckIn = () => {
         }
     };
 
-    // Initialize IP and check restrictions
-    const initializeIPCheck = async () => {
-        const ip = await getUserIP();
-        if (ip) {
-            const { allowed, existingRecord } = await checkIPRestriction(ip);
-            if (!allowed && existingRecord) {
-                setIpRestrictionError(`This device has been checked-in today`);
-            }
-        }
-    };
-
     useEffect(() => {
         fetchDepartments();
         checkTimeStatus();
@@ -449,22 +512,16 @@ const EmployeeCheckIn = () => {
     const handleSubmit = async (e) => {
         e.preventDefault();
         
-        // Check IP restriction first
-        if (ipRestrictionError) {
-            alert(`❌ Device Restriction: ${ipRestrictionError}`);
+        // Enhanced IP validation before any other checks
+        try {
+            await validateIPBeforeSubmit(formData.employeeId);
+        } catch (ipError) {
+            alert(`❌ Device Restriction: ${ipError.message}`);
+            // Refresh IP check to update UI
+            initializeIPCheck();
             return;
         }
 
-        if (!userIP && !ipCheckLoading) {
-            alert('❌ Unable to verify your device. Please check your internet connection and try again.');
-            return;
-        }
-
-        if (ipCheckLoading) {
-            alert('⏳ Please wait while we verify your device...');
-            return;
-        }
-        
         if (!timeStatus.isPunchInAllowed) {
             alert(`❌ ${timeStatus.message}`);
             return;
@@ -507,11 +564,12 @@ const EmployeeCheckIn = () => {
                 return;
             }
             
-            // Final IP restriction check before submission
-            const { allowed, existingRecord } = await checkIPRestriction(userIP);
-            if (!allowed) {
-                setIpRestrictionError(`This device has already been used for check-in today by ${existingRecord.employee_name}. Only one check-in per device is allowed.`);
-                alert(`❌ Device Restriction: ${ipRestrictionError}`);
+            // Final IP restriction check right before submission
+            try {
+                await validateIPBeforeSubmit(formData.employeeId);
+            } catch (finalIpError) {
+                alert(`❌ Device Restriction: ${finalIpError.message}`);
+                initializeIPCheck();
                 return;
             }
             
@@ -604,7 +662,7 @@ const EmployeeCheckIn = () => {
     return (
         <div className="container">
             <div className="form-container">
-                {/* IP/Device Status Banner */}
+                {/* Enhanced IP/Device Status Banner */}
                 <div className={`device-status-banner ${ipRestrictionError ? 'error' : ipCheckLoading ? 'loading' : 'allowed'}`}>
                     <div className="device-status-icon">
                         {ipRestrictionError ? '🚫' : ipCheckLoading ? '🔄' : '✅'}
@@ -621,17 +679,17 @@ const EmployeeCheckIn = () => {
                             </div>
                         )}
                     </div>
-                    {ipRestrictionError && (
-                        <button 
-                            className="refresh-ip-btn"
-                            onClick={initializeIPCheck}
-                            title="Retry device verification"
-                        >
-                            🔄
-                        </button>
-                    )}
+                    <button 
+                        className="refresh-ip-btn"
+                        onClick={() => initializeIPCheck()}
+                        title="Retry device verification"
+                        disabled={ipCheckLoading}
+                    >
+                        {ipCheckLoading ? '🔄' : '🔃'}
+                    </button>
                 </div>
 
+                {/* Rest of your existing JSX remains the same */}
                 {/* Time Status Banner */}
                 <div className={`time-status-banner ${timeStatus.isPunchInAllowed ? 'allowed' : 'not-allowed'}`}>
                     <div className="time-status-icon">
@@ -803,7 +861,7 @@ const EmployeeCheckIn = () => {
                 <p style={{fontSize: '10px', color: '#95a5a6', marginTop: '5px'}}>
                     Punch-in allowed: 09:00 AM - 09:45 AM IST | 
                     Location: Within {ALLOWED_RADIUS_METERS}m of office |
-                    Device: One check-in per device
+                    Device: One check-in per device per day
                 </p>
             </div>
         </div>
