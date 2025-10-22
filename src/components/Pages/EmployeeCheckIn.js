@@ -130,7 +130,7 @@ const EmployeeCheckIn = () => {
                 return { 
                     allowed: false, 
                     existingRecords: data,
-                    message: `This device has already been used for check-in today. Only one check-in per device is allowed.`
+                    message: `This device has already been used for check-in today.`
                 };
             }
             
@@ -869,3 +869,4 @@ const EmployeeCheckIn = () => {
 };
 
 export default EmployeeCheckIn;
+
