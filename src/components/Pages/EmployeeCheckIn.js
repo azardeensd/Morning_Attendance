@@ -41,6 +41,7 @@ const EmployeeCheckIn = () => {
     const [ipRestrictionError, setIpRestrictionError] = useState(null);
     const [showSuccessPopup, setShowSuccessPopup] = useState(false);
     const [submittedData, setSubmittedData] = useState(null);
+    const [isSubmitted, setIsSubmitted] = useState(false);
 
     // Enhanced IP detection with better error handling
     const getUserIP = async () => {
@@ -132,7 +133,7 @@ const EmployeeCheckIn = () => {
                 return { 
                     allowed: false, 
                     existingRecords: data,
-                    message: `This device has already been used for check-in today.`
+                    message: `This device has already been used for check-in today. Only one check-in per device is allowed.`
                 };
             }
             
@@ -155,7 +156,7 @@ const EmployeeCheckIn = () => {
                 const { allowed, existingRecords, message } = await checkIPRestriction(ip);
                 if (!allowed) {
                     const names = [...new Set(existingRecords.map(record => record.employee_name))].join(', ');
-                    setIpRestrictionError(message);
+                    setIpRestrictionError(`${message} ${names ? `Used by: ${names}` : ''}`);
                 } else {
                     setIpRestrictionError(null);
                 }
@@ -442,7 +443,7 @@ const EmployeeCheckIn = () => {
             <div className="success-popup-overlay">
                 <div className="success-popup">
                     <div className="success-icon">😊</div>
-                    <h2>Attendance Submitted Successfully!</h2>
+                    <h2>Your Attendance has been punched successfully!</h2>
                     <div className="success-details">
                         <p><strong>Employee:</strong> {submittedData?.employeeName}</p>
                         <p><strong>Department:</strong> {submittedData?.departmentName}</p>
@@ -456,17 +457,7 @@ const EmployeeCheckIn = () => {
                         className="success-close-btn"
                         onClick={() => {
                             setShowSuccessPopup(false);
-                            // Reset form after closing popup
-                            setFormData({
-                                departmentId: '',
-                                employeeId: '',
-                                employeeName: '',
-                                departmentName: '',
-                                rating: 0
-                            });
-                            setEmployees([]);
-                            setHoverRating(0);
-                            setAlreadyCheckedIn(false);
+                            setIsSubmitted(true); // Mark as submitted
                         }}
                     >
                         Close
@@ -474,6 +465,21 @@ const EmployeeCheckIn = () => {
                 </div>
             </div>
         );
+    };
+
+    // Reset form function
+    const resetForm = () => {
+        setFormData({
+            departmentId: '',
+            employeeId: '',
+            employeeName: '',
+            departmentName: '',
+            rating: 0
+        });
+        setEmployees([]);
+        setHoverRating(0);
+        setAlreadyCheckedIn(false);
+        setIsSubmitted(false); // Reset submitted status
     };
 
     useEffect(() => {
@@ -506,6 +512,7 @@ const EmployeeCheckIn = () => {
         });
         setEmployees([]);
         setAlreadyCheckedIn(false);
+        setIsSubmitted(false); // Reset submitted status when department changes
 
         if (departmentId) {
             fetchEmployeesByDepartment(departmentId);
@@ -527,6 +534,7 @@ const EmployeeCheckIn = () => {
             // Check if employee has already checked in today
             const hasCheckedIn = await checkExistingCheckIn(selectedEmployee.employee_id);
             setAlreadyCheckedIn(hasCheckedIn);
+            setIsSubmitted(false); // Reset submitted status when employee changes
         } else {
             setFormData(prev => ({
                 ...prev,
@@ -535,6 +543,7 @@ const EmployeeCheckIn = () => {
                 departmentName: prev.departmentName
             }));
             setAlreadyCheckedIn(false);
+            setIsSubmitted(false); // Reset submitted status when no employee selected
         }
     };
 
@@ -543,6 +552,7 @@ const EmployeeCheckIn = () => {
             ...prevState,
             rating: rating
         }));
+        setIsSubmitted(false); // Reset submitted status when rating changes
     };
 
     const handleRatingHover = (rating) => {
@@ -698,7 +708,7 @@ const EmployeeCheckIn = () => {
         return stars;
     };
 
-    const isFormDisabled = loading || alreadyCheckedIn || !timeStatus.isPunchInAllowed || gettingLocation || ipCheckLoading || ipRestrictionError || showSuccessPopup;
+    const isFormDisabled = loading || alreadyCheckedIn || !timeStatus.isPunchInAllowed || gettingLocation || ipCheckLoading || ipRestrictionError || showSuccessPopup || isSubmitted;
 
     return (
         <div className="container">
@@ -883,17 +893,17 @@ const EmployeeCheckIn = () => {
                     <div className="button-group">
                         <button 
                             type="submit" 
-                            className={`submit-btn ${!timeStatus.isPunchInAllowed || !locationStatus.isWithinOffice || ipRestrictionError ? 'disabled-time' : ''}`}
+                            className={`submit-btn ${isSubmitted ? 'submitted' : !timeStatus.isPunchInAllowed || !locationStatus.isWithinOffice || ipRestrictionError ? 'disabled-time' : ''}`}
                             disabled={isFormDisabled || !formData.employeeId || !locationStatus.isWithinOffice || alreadyCheckedIn || ipRestrictionError}
                         >
-                            {ipCheckLoading ? '🔒 Verifying Device...' :
+                            {isSubmitted ? '✅ Submitted' :
+                             ipCheckLoading ? '🔒 Verifying Device...' :
                              gettingLocation ? '📍 Getting Location...' :
                              loading ? '🔄 Submitting...' : 
                              alreadyCheckedIn ? 'Already Checked In' :
                              ipRestrictionError ? 'Device Already Used' :
                              !timeStatus.isPunchInAllowed ? 'Time Exceeded' :
                              !locationStatus.isWithinOffice ? 'Outside Office Area' :
-                             showSuccessPopup ? 'Submitted Successfully!' :
                              'Submit'}
                         </button>
                     </div>
@@ -913,4 +923,3 @@ const EmployeeCheckIn = () => {
 };
 
 export default EmployeeCheckIn;
-
