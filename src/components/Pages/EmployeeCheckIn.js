@@ -153,7 +153,7 @@ const EmployeeCheckIn = () => {
                 const { allowed, existingRecords, message } = await checkIPRestriction(ip);
                 if (!allowed) {
                     const names = [...new Set(existingRecords.map(record => record.employee_name))].join(', ');
-                    setIpRestrictionError(`${message} ${names ? `Used by: ${names}` : ''}`);
+                    setIpRestrictionError(message);
                 } else {
                     setIpRestrictionError(null);
                 }
@@ -869,4 +869,5 @@ const EmployeeCheckIn = () => {
 };
 
 export default EmployeeCheckIn;
+
 
