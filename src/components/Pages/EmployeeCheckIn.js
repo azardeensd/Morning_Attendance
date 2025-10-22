@@ -39,6 +39,8 @@ const EmployeeCheckIn = () => {
     const [userIP, setUserIP] = useState(null);
     const [ipCheckLoading, setIpCheckLoading] = useState(true);
     const [ipRestrictionError, setIpRestrictionError] = useState(null);
+    const [showSuccessPopup, setShowSuccessPopup] = useState(false);
+    const [submittedData, setSubmittedData] = useState(null);
 
     // Enhanced IP detection with better error handling
     const getUserIP = async () => {
@@ -130,7 +132,7 @@ const EmployeeCheckIn = () => {
                 return { 
                     allowed: false, 
                     existingRecords: data,
-                    message: `This device has already been used for check-in today.`
+                    message: `This device has already been used for check-in today. Only one check-in per device is allowed.`
                 };
             }
             
@@ -153,7 +155,7 @@ const EmployeeCheckIn = () => {
                 const { allowed, existingRecords, message } = await checkIPRestriction(ip);
                 if (!allowed) {
                     const names = [...new Set(existingRecords.map(record => record.employee_name))].join(', ');
-                    setIpRestrictionError(message);
+                    setIpRestrictionError(`${message} ${names ? `Used by: ${names}` : ''}`);
                 } else {
                     setIpRestrictionError(null);
                 }
@@ -432,6 +434,48 @@ const EmployeeCheckIn = () => {
         }
     };
 
+    // Success Popup Component
+    const SuccessPopup = () => {
+        if (!showSuccessPopup) return null;
+
+        return (
+            <div className="success-popup-overlay">
+                <div className="success-popup">
+                    <div className="success-icon">😊</div>
+                    <h2>Attendance Submitted Successfully!</h2>
+                    <div className="success-details">
+                        <p><strong>Employee:</strong> {submittedData?.employeeName}</p>
+                        <p><strong>Department:</strong> {submittedData?.departmentName}</p>
+                        <p><strong>Rating:</strong> {submittedData?.rating} ⭐</p>
+                        <p><strong>Time:</strong> {new Date().toLocaleTimeString('en-IN', { 
+                            timeZone: 'Asia/Kolkata',
+                            hour12: false 
+                        })} IST</p>
+                    </div>
+                    <button 
+                        className="success-close-btn"
+                        onClick={() => {
+                            setShowSuccessPopup(false);
+                            // Reset form after closing popup
+                            setFormData({
+                                departmentId: '',
+                                employeeId: '',
+                                employeeName: '',
+                                departmentName: '',
+                                rating: 0
+                            });
+                            setEmployees([]);
+                            setHoverRating(0);
+                            setAlreadyCheckedIn(false);
+                        }}
+                    >
+                        Close
+                    </button>
+                </div>
+            </div>
+        );
+    };
+
     useEffect(() => {
         fetchDepartments();
         checkTimeStatus();
@@ -618,18 +662,15 @@ const EmployeeCheckIn = () => {
                 return;
             }
             
-            alert(`✅ Thank you ${formData.employeeName}! Your attendance has been recorded.`);
-            // Reset form after successful submission
-            setFormData({
-                departmentId: '',
-                employeeId: '',
-                employeeName: '',
-                departmentName: '',
-                rating: 0
+            // Store submitted data for success popup
+            setSubmittedData({
+                employeeName: formData.employeeName,
+                departmentName: formData.departmentName,
+                rating: formData.rating
             });
-            setEmployees([]);
-            setHoverRating(0);
-            setAlreadyCheckedIn(false);
+            
+            // Show success popup instead of alert
+            setShowSuccessPopup(true);
             
         } catch (error) {
             console.error('Error:', error);
@@ -657,7 +698,7 @@ const EmployeeCheckIn = () => {
         return stars;
     };
 
-    const isFormDisabled = loading || alreadyCheckedIn || !timeStatus.isPunchInAllowed || gettingLocation || ipCheckLoading || ipRestrictionError;
+    const isFormDisabled = loading || alreadyCheckedIn || !timeStatus.isPunchInAllowed || gettingLocation || ipCheckLoading || ipRestrictionError || showSuccessPopup;
 
     return (
         <div className="container">
@@ -689,7 +730,6 @@ const EmployeeCheckIn = () => {
                     </button>
                 </div>
 
-                {/* Rest of your existing JSX remains the same */}
                 {/* Time Status Banner */}
                 <div className={`time-status-banner ${timeStatus.isPunchInAllowed ? 'allowed' : 'not-allowed'}`}>
                     <div className="time-status-icon">
@@ -784,6 +824,9 @@ const EmployeeCheckIn = () => {
                     </div>
                 )}
 
+                {/* Success Popup */}
+                <SuccessPopup />
+
                 <form onSubmit={handleSubmit}>
                     <div className="form-group">
                         <select 
@@ -850,6 +893,7 @@ const EmployeeCheckIn = () => {
                              ipRestrictionError ? 'Device Already Used' :
                              !timeStatus.isPunchInAllowed ? 'Time Exceeded' :
                              !locationStatus.isWithinOffice ? 'Outside Office Area' :
+                             showSuccessPopup ? 'Submitted Successfully!' :
                              'Submit'}
                         </button>
                     </div>
@@ -869,5 +913,3 @@ const EmployeeCheckIn = () => {
 };
 
 export default EmployeeCheckIn;
-
-
